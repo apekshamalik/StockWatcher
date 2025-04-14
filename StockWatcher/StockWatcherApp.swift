@@ -48,8 +48,8 @@ struct StockWatcherApp: App {
 
     var body: some Scene {
         WindowGroup {
-            WatchlistView()
-                .environmentObject(watchlistModel) 
+             ContentView()
+                .environmentObject(watchlistModel)
         }
     }
 }

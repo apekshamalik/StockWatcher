@@ -16,6 +16,7 @@ struct WatchlistView: View {
             VStack {
                 Text("My Portfolio")
                     .font(.largeTitle)
+                    .fontWeight(.regular)
                     .bold()
                     .padding(.top)
 
