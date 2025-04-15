@@ -1,69 +1,65 @@
 import SwiftUI
-
-struct WatchlistStock: Identifiable {
-    let id = UUID()
-    let symbol: String
-    let price: String
-    let change: String
-    let changePercent: String
-}
+import SwiftData
 
 struct WatchlistView: View {
-    @EnvironmentObject var watchlistModel: WatchlistModel
+    @Query var stocks: [WatchlistStock]
+    @State private var quotes: [String: StockQuote] = [:]
+    @Environment(\.modelContext) var modelContext
+    
+    func deleteStock(_ indexSet: IndexSet) {
+        for index in indexSet {
+            modelContext.delete(stocks[index])
+        }
+    }
 
     var body: some View {
-        NavigationView {
-            VStack {
-                Text("My Portfolio")
-                    .font(.largeTitle)
-                    .fontWeight(.regular)
-                    .bold()
-                    .padding(.top)
-
-                List {
-                    ForEach(watchlistModel.stocks) { stock in
-                        NavigationLink(destination: StockDetailView(symbol: stock.symbol)) {
-                            HStack {
-                                Text(stock.symbol)
-                                    .font(.headline)
-                                    .frame(width: 60, alignment: .leading)
-
-                                Spacer()
-
-                                VStack(alignment: .trailing) {
-                                    Text("$\(stock.price)")
-                                    Text("\(stock.change) (\(stock.changePercent))")
-                                        .font(.caption)
-                                        .foregroundColor(.green)
-                                }
-                            }
-                            .padding(14)
-                            .background(Color.black)
-                            .cornerRadius(10)
-                            .foregroundColor(.white)
+        NavigationStack {
+            List {
+                ForEach(stocks) { stock in
+                    if let quote = quotes[stock.symbol] {
+                        NavigationLink(destination: StockDetailView(symbol: quote.symbol, name: quote.name, inputSymbol: quote.symbol)) {
+                            StockRowView(stock: stock)
                         }
-                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 5, leading: 5, bottom: 5, trailing: 5))
+
+                    } else {
+                        // Placeholder
+                        HStack {
+                            ProgressView()
+                            Text(stock.symbol)
+                        }
+                        .listRowInsets(EdgeInsets(top: 5, leading: 5, bottom: 5, trailing: 5))
                     }
                 }
-                .listStyle(PlainListStyle())
-                .background(Color.white)
+                .onDelete(perform: deleteStock)
             }
-            .background(Color.white)
-            .ignoresSafeArea(edges: .bottom)
-            .navigationTitle("")
+            .animation(.default, value: stocks)
+            .navigationTitle("My Portfolio")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                NavigationLink(destination: StockDetailView(symbol: "AAPL", isAddMode: true)
-                    .environmentObject(watchlistModel)) {
+                NavigationLink(destination: StockDetailView(symbol: "AAPL", name: "Apple", inputSymbol: "AAPL")) {
                     Image(systemName: "plus")
                         .imageScale(.large)
+                }
+            }
+            .task {
+                // Load all quotes when view appears
+                for stock in stocks {
+                    Task {
+                        if let quote = try? await fetchStockQuote(symbol: stock.symbol) {
+                            // Store the quote in state
+                            await MainActor.run {
+                                quotes[stock.symbol] = quote
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+
 #Preview {
     WatchlistView()
-        .environmentObject(WatchlistModel())
 }
